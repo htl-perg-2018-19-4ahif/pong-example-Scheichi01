@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client')));
 const server = http.createServer(app);
 
-const port = 8080;
+const port = 8090;
 server.listen(port, () => console.log(`Server is listening on port ${port}...`));
 
 // Handle the connection of new websocket clients

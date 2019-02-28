@@ -1,9 +1,3 @@
-/**************************************************************************
-  Demo for a socket.io client
-
-  NOTE: This code has not been optimized for size or speed. It was written
-        with ease of understanding in mind.
-**************************************************************************/
 window.addEventListener('load', async () => {
   const keys = <HTMLUListElement>document.getElementById('keys');
 
@@ -27,13 +21,18 @@ window.addEventListener('load', async () => {
     newLi.innerText = code;
     keys.appendChild(newLi);
   })
-  
+
   // Get some information about the paddle. This information will never change.
   // So it makes sense to get it only once to make the rest of the program faster.
-  const paddle = <HTMLDivElement>document.getElementsByClassName('paddle')[0];
-  const paddleHeight = paddle.clientHeight;
-  const paddleHalfHeight = paddleHeight / 2;
-  let currentPaddlePosition = paddle.clientTop;
+  const leftPaddle = <HTMLDivElement>document.getElementsByClassName('paddle')[0];
+  const rightPaddle = <HTMLDivElement>document.getElementsByClassName('paddle')[1];
+  const leftPaddleHeight = leftPaddle.clientHeight;
+  const leftPaddleHalfHeight = leftPaddleHeight / 2;
+  let currentLeftPaddlePosition = leftPaddle.clientTop;
+
+  const rightPaddleHeight = rightPaddle.clientHeight;
+  const rightPaddleHalfHeight = rightPaddleHeight / 2;
+  let currentRightPaddlePosition = rightPaddle.clientTop;
 
   // Controls the speed of the movement (number of pixels per interval)
   const speed = 1;
@@ -52,11 +51,19 @@ window.addEventListener('load', async () => {
       switch (event.code) {
         case 'ArrowDown':
           direction = speed;
-          startMoving();
+          startMoving(2);
           break;
         case 'ArrowUp':
           direction = speed * -1;
-          startMoving();
+          startMoving(2);
+          break;
+        case 'KeyW':
+          direction = speed * -1;
+          startMoving(1);
+          break;
+        case 'KeyS':
+          direction = speed;
+          startMoving(1);
           break;
       }
     }
@@ -67,22 +74,24 @@ window.addEventListener('load', async () => {
     switch (event.code) {
       case 'ArrowDown':
       case 'ArrowUp':
+      case 'KeyW':
+      case 'KeyS':
         stopMoving();
         break;
     }
   });
 
   // Setup handler for touch displays (pan operation)
-  const hammertime = new Hammer(paddle);
+  const hammertime = new Hammer(leftPaddle);
   hammertime.get('pan').set({ direction: Hammer.DIRECTION_DOWN | Hammer.DIRECTION_UP });
-  hammertime.on('pan', ev => 
+  hammertime.on('pan', ev =>
     // Put center of paddle to the center of the user's finger
-    movePaddle(ev.center.y - paddleHalfHeight));
+    movePaddle(1, ev.center.y - leftPaddleHalfHeight));
 
   /** Helper function that starts movement when keydown happens */
-  function startMoving() {
+  function startMoving(paddleNumber: number) {
     // Move paddle every 4ms
-    interval = setInterval(() => movePaddle(currentPaddlePosition + direction), 4);
+    interval = setInterval(() => movePaddle(paddleNumber, paddleNumber === 1 ? currentLeftPaddlePosition + direction : currentRightPaddlePosition + direction), 4);
   }
 
   /** Helper function that stops movement when keyup happens */
@@ -95,28 +104,38 @@ window.addEventListener('load', async () => {
    * Helper function that moves the paddle to a given position
    * @param targetPosition Target position. No movement is done if target position is invalid
    */
-  function movePaddle(targetPosition: number): void {
-    if (targetPosition >= 0 && (targetPosition + paddleHeight) <= document.documentElement.clientHeight) {
-      currentPaddlePosition = targetPosition;
+  function movePaddle(paddleNumber: number, targetPosition: number): void {
+    if (paddleNumber === 1) {
+      if (targetPosition >= 0 && (targetPosition + leftPaddleHeight) <= document.documentElement.clientHeight) {
+        currentLeftPaddlePosition = targetPosition;
 
-      // Note the 'px' at the end of the coordinates for CSS. Don't
-      // forget it. Without the 'px', it doesn't work.
-      paddle.style.setProperty('top', `${currentPaddlePosition}px`);
+        // Note the 'px' at the end of the coordinates for CSS. Don't
+        // forget it. Without the 'px', it doesn't work.
+        leftPaddle.style.setProperty('top', `${currentLeftPaddlePosition}px`);
+      }
+    } else if (paddleNumber === 2) {
+      if (targetPosition >= 0 && (targetPosition + rightPaddleHeight) <= document.documentElement.clientHeight) {
+        currentRightPaddlePosition = targetPosition;
+
+        // Note the 'px' at the end of the coordinates for CSS. Don't
+        // forget it. Without the 'px', it doesn't work.
+        rightPaddle.style.setProperty('top', `${currentRightPaddlePosition}px`);
+      }
     }
   }
-  
+
   /** Represents a 2d point */
   interface Point {
     x: number;
     y: number
   };
-  
+
   /** Represents the size of a 2d object */
   interface Size {
     width: number;
     height: number;
   }
-  
+
   /** Represents directions  */
   enum Direction { top, right, bottom, left };
 
@@ -153,13 +172,34 @@ window.addEventListener('load', async () => {
       y: ballCurrentPosition.y + Math.tan(angle) * Math.abs(targetX - ballCurrentPosition.x) * ((quadrant === 0 || quadrant === 3) ? -1 : 1)
     };
 
+    if (ballCurrentPosition.y > currentLeftPaddlePosition + leftPaddleHeight && ballCurrentPosition.y < currentLeftPaddlePosition) {
+      let paddleCurrentPosition: Point = { x: ballCurrentPosition.x, y: currentLeftPaddlePosition };
+      const paddleTouch = await animateBall(ballCurrentPosition, paddleCurrentPosition);
+      switch (paddleTouch.touchDirection) {
+        case Direction.left:
+          quadrant = (quadrant === 2) ? 1 : 0;
+          break;
+        case Direction.right:
+          quadrant = (quadrant === 0) ? 3 : 2;
+          break;
+        case Direction.top:
+          quadrant = (quadrant === 0) ? 1 : 2;
+          break;
+        case Direction.bottom:
+          quadrant = (quadrant === 2) ? 3 : 0;
+          break;
+        default:
+          throw new Error('Invalid direction, should never happen');
+      }
+    }
+
     // Animate ball to calculated target position
     const borderTouch = await animateBall(ballCurrentPosition, targetBallPosition);
 
     // Based on where the ball touched the browser window, we change the new target quadrant.
     // Note that in this solution the angle stays the same.
     switch (borderTouch.touchDirection) {
-      case Direction.left: 
+      case Direction.left:
         quadrant = (quadrant === 2) ? 1 : 0;
         break;
       case Direction.right:
@@ -188,7 +228,7 @@ window.addEventListener('load', async () => {
    * @returns Position and direction where ball touched the border of the browser window
    *          at the end of the animation
    */
-  function animateBall(currentBallPosition: Point, targetBallPosition: Point): Promise<{touchPosition: Point, touchDirection: Direction}> {
+  function animateBall(currentBallPosition: Point, targetBallPosition: Point): Promise<{ touchPosition: Point, touchDirection: Direction }> {
     // Calculate x and y distances from current to target position
     const distanceToTarget: Size = subtractPoints(targetBallPosition, currentBallPosition);
 
@@ -202,7 +242,7 @@ window.addEventListener('load', async () => {
     const distancePerInterval = splitSize(distanceToTarget, distance * pixelsPerInterval);
 
     // Return a promise that will resolve when animation is done
-    return new Promise<{touchPosition: Point, touchDirection: Direction}>(res => {
+    return new Promise<{ touchPosition: Point, touchDirection: Direction }>(res => {
       // Start at current ball position
       let animatedPosition: Point = currentBallPosition;
 
@@ -221,6 +261,14 @@ window.addEventListener('load', async () => {
         if ((animatedPosition.x + ballHalfSize.width) > clientSize.width) { touchDirection = Direction.right; }
         if ((animatedPosition.y + ballHalfSize.height) > clientSize.height) { touchDirection = Direction.bottom; }
 
+        if (overlaps(ball, leftPaddle)) {
+          //links
+          touchDirection = Direction.left;
+        }
+        if (overlaps(ball, rightPaddle)) {
+          //rechts
+          touchDirection = Direction.right;
+        }
         if (touchDirection !== undefined) {
           // Ball touches border -> stop animation
           clearInterval(interval);
@@ -232,18 +280,18 @@ window.addEventListener('load', async () => {
 
   /** Move the center of the ball to given position **/
   function moveBall(targetPosition: Point): void {
-      // Note the 'px' at the end of the coordinates for CSS. Don't
-      // forget it. Without the 'px', it doesn't work.
-      const leftPos = `${targetPosition.x - ballHalfSize.width}px`;
-      const topPos = `${targetPosition.y - ballHalfSize.height}px`;
+    // Note the 'px' at the end of the coordinates for CSS. Don't
+    // forget it. Without the 'px', it doesn't work.
+    const leftPos = `${targetPosition.x - ballHalfSize.width}px`;
+    const topPos = `${targetPosition.y - ballHalfSize.height}px`;
 
-      if (ball.style.left !== leftPos) {
-        ball.style.setProperty('left', leftPos);
-      }
+    if (ball.style.left !== leftPos) {
+      ball.style.setProperty('left', leftPos);
+    }
 
-      if (ball.style.top !== topPos) {
-        ball.style.setProperty('top', topPos);
-      }
+    if (ball.style.top !== topPos) {
+      ball.style.setProperty('top', topPos);
+    }
   }
 
   /** Subtracts two points and returns the size between them */
@@ -269,4 +317,29 @@ window.addEventListener('load', async () => {
       height: s.height / divider
     };
   }
+
+
 });
+
+let overlaps = (function () {
+  function getPositions(elem) {
+    let pos, width, height;
+    pos = $(elem).position();
+    width = $(elem).width();
+    height = $(elem).height();
+    return [[pos.left, pos.left + width], [pos.top, pos.top + height]];
+  }
+
+  function comparePositions(p1, p2) {
+    let r1, r2;
+    r1 = p1[0] < p2[0] ? p1 : p2;
+    r2 = p1[0] < p2[0] ? p2 : p1;
+    return r1[1] > r2[0] || r1[0] === r2[0];
+  }
+
+  return function (a, b) {
+    let pos1 = getPositions(a),
+      pos2 = getPositions(b);
+    return comparePositions(pos1[0], pos2[0]) && comparePositions(pos1[1], pos2[1]);
+  };
+})();

@@ -26,5 +26,12 @@ body {
     width: 20px;
     height: 100px;
     background-color: red;
+}
+
+#leftPaddle{
     left: 50px;
+}
+
+#rightPaddle{
+    right: 50px;
 }

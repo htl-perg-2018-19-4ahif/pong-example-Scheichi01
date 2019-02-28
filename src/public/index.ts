@@ -1,5 +1,5 @@
-declare const io: any;
-const socket: SocketIO.Server = io();
+declare const iio: any;
+const socket: SocketIO.Server = iio();
 
 let game;
 let username = "";

@@ -27,5 +27,10 @@ function hammer() {
         .pipe(gulp.dest('dist/client'));
 };
 
-exports.default = gulp.series(web, script, hammer);
+function jquery(){
+    return gulp.src('src/jquery.js')
+    .pipe(gulp.dest('dist/client'));
+};
+
+exports.default = gulp.series(web, script, hammer, jquery);
 exports.watch = watchSource;
